@@ -159,7 +159,6 @@
     <script>
         const SEOUL_API_KEY = "6c67546d4172686b38347542595741";
 
-        // 서해선(1093) 제외
         const SUBWAY_ID_MAP = {
             '1001': '1호선', '1002': '2호선', '1003': '3호선', '1004': '4호선',
             '1005': '5호선', '1006': '6호선', '1007': '7호선', '1008': '8호선',
@@ -186,12 +185,14 @@
             '금정|1호선|4호선': 50, '복정|8호선|수인분당선': 70, '충무로|3호선|4호선': 90,
             '까치산|2호선|5호선': 90, '동대문역사문화공원|2호선|4호선': 100, '수서|3호선|수인분당선': 110,
             '옥수|3호선|경의중앙선': 120, '이촌|4호선|경의중앙선': 130, '대곡|3호선|경의중앙선': 150,
-            '신도림|1호선|2호선': 150, '사당|2호선|4호선': 190,
+            '신도림|1호선|2호선': 150, '사당|2호선|4호선': 190, '오금|3호선|5호선': 160,
+            '올림픽공원|5호선|9호선': 210, '천호|5호선|8호선': 180, '군자|5호선|7호선': 150,
             '총신대입구(이수)|4호선|7호선': 210, '건대입구|2호선|7호선': 210, '교대|2호선|3호선': 200,
             '선릉|2호선|수인분당선': 180, '강남|2호선|신분당선': 220, '양재|3호선|신분당선': 210,
             '용산|1호선|경의중앙선': 180, '왕십리|2호선|5호선': 180, '왕십리|2호선|경의중앙선': 210,
             '왕십리|2호선|수인분당선': 210, '서울역|1호선|4호선': 270, '서울역|1호선|공항철도': 390,
-            '서울역|4호선|공항철도': 390, '홍대입구|2호선|공항철도': 360, '홍대입구|2호선|경의중앙선': 360,
+            '서울역|4호선|공항철도': 390, '서울역|1호선|경의중앙선': 240, '서울역|4호선|경의중앙선': 270,
+            '홍대입구|2호선|공항철도': 360, '홍대입구|2호선|경의중앙선': 360,
             '디지털미디어시티|6호선|공항철도': 390, '디지털미디어시티|6호선|경의중앙선': 390,
             '공덕|5호선|6호선': 210, '공덕|5호선|공항철도': 300, '고속터미널|3호선|7호선': 240,
             '고속터미널|3호선|9호선': 390, '고속터미널|7호선|9호선': 360, '종로3가|1호선|5호선': 390,
@@ -212,15 +213,20 @@
         const RAW_LINES = {
             '1호선': ["연천","전곡","청산","소요산","동두천","보산","동두천중앙","지행","덕정","덕계","양주","녹양","가능","의정부","회룡","망월사","도봉산","도봉","방학","창동","녹천","월계","광운대","석계","신이문","외대앞","회기","청량리","제기동","신설동","동묘앞","동대문","종로5가","종로3가","종각","시청","서울역","남영","용산","노량진","대방","신길","영등포","신도림","구로","가산디지털단지","독산","금천구청","석수","관악","안양","명학","금정","군포","당정","의왕","성균관대","화서","수원","세류","병점","세마","오산대","오산","진위","송탄","서정리","평택지제","평택","성환","직산","두정","천안","봉명","쌍용","아산","탕정","배방","온양온천","신창"],
             '1호선(경인)': ["구로","구일","개봉","오류동","온수","역곡","소사","부천","중동","송내","부개","부평","백운","동암","간석","주안","도화","제물포","도원","동인천","인천"],
-            '2호선': ["시청","을지로입구","을지로3가","을지로4가","동대문역사문화공원","신당","상왕십리","왕십리","한양대","뚝섬","성수","건대입구","구의","강변","잠실나루","잠실","잠실새내","종합운동장","삼성","선릉","역삼","강남","교대","서초","방배","사당","낙성대","서울대입구","봉천","신림","신대방","구로디지털단지","대림","신도림","문래","영등포구청","당산","합정","홍대입구","신촌","이대","아현","충정로","시청"],
+            '1호선(광명)': ["금천구청","광명"],
+            '1호선(서동탄)': ["병점","서동탄"],
+            '2호선': ["시청","을지로입구","을지로3가","을지로4가","동대문역사문화공원","신당","상왕십리","왕십리","한양대","뚝섬","성수","건대입구","구의","강변","잠실나루","잠실","잠실새내","종합운동장","삼성","선릉","역삼","강남","교대","서초","방배","사당","낙성대","서울대입구","봉천","신림","신대방","구로디지털단지","대림","신도림","문래","영등포구청","당산","합정","홍대입구","신촌","이대","아현","충정로"],
             '3호선': ["대화","주엽","정발산","마두","백석","대곡","화정","원당","원흥","삼송","지축","구파발","연신내","불광","녹번","홍제","무악재","독립문","경복궁","안국","종로3가","을지로3가","충무로","동대문","약수","금호","옥수","압구정","신사","잠원","고속터미널","교대","남부터미널","양재","매봉","도곡","대치","학여울","대청","일원","수서","가락시장","경찰병원","오금"],
             '4호선': ["진접","별내별가람","오남","당고개","상계","노원","창동","쌍문","수유","미아","미아사거리","길음","성신여대입구","한성대입구","혜화","동대문","동대문역사문화공원","충무로","명동","회현","서울역","숙대입구","삼각지","신용산","이촌","동작","총신대입구(이수)","사당","남태령","선바위","경마공원","대공원","과천","정부과천청사","인덕원","평촌","범계","금정","산본","수리산","대야미","반월","상록수","한대앞","중앙","고잔","초지","안산","신길온천","정왕","오이도"],
             '5호선': ["방화","김포공항","송정","마곡","발산","우장산","화곡","까치산","신정","목동","오목교","양평","영등포구청","영등포시장","신길","여의도","여의나루","마포","공덕","애오개","충정로","서대문","광화문","종로3가","을지로4가","동대문역사문화공원","청구","신금호","행당","왕십리","마장","답십리","장한평","군자","아차산","광나루","천호","강동","길동","굽은다리","명일","고덕","상일동","강일","미사","하남풍산","하남시청","하남검단산"],
-            '6호선': ["응암","역촌","불광","독바위","연신내","구산","응암","새절","증산","디지털미디어시티","월드컵경기장","마포구청","망원","합정","상수","광흥창","대흥","공덕","효창공원앞","삼각지","녹사평","이태원","한강진","버티고개","약수","청구","신당","동묘앞","창신","보문","안암","고려대","월곡","상월곡","돌곶이","석계","태릉입구","화랑대","봉화산","신내"],
+            '5호선(마천)': ["강동","둔촌동","올림픽공원","방이","오금","개롱","거여","마천"],
+            '6호선(순환)': ["응암","역촌","불광","독바위","연신내","구산","응암"],
+            '6호선': ["응암","새절","증산","디지털미디어시티","월드컵경기장","마포구청","망원","합정","상수","광흥창","대흥","공덕","효창공원앞","삼각지","녹사평","이태원","한강진","버티고개","약수","청구","신당","동묘앞","창신","보문","안암","고려대","월곡","상월곡","돌곶이","석계","태릉입구","화랑대","봉화산","신내"],
             '7호선': ["장암","도봉산","수락산","마들","노원","중계","하계","공릉","태릉입구","먹골","중화","상봉","면목","사가정","용마산","중곡","군자","어린이대공원","건대입구","자양","청담","강남구청","학동","논현","반포","고속터미널","내방","총신대입구(이수)","남성","숭실대입구","상도","장승배기","신대방삼거리","보라매","신풍","대림","남구로","가산디지털단지","철산","광명사거리","천왕","온수","까치울","부천종합운동장","춘의","신중동","부천시청","상동","삼산체육관","굴포천","부평구청","산곡","석남"],
             '8호선': ["별내","다산","동구릉","구리","장자호수공원","암사역사공원","암사","천호","강동구청","몽촌토성","잠실","석촌","송파","가락시장","문정","장지","복정","산성","남한산성입구","단대오거리","신흥","수진","모란"],
             '9호선': ["개화","김포공항","공항시장","신방화","마곡나루","양천향교","가양","증미","등촌","염창","신목동","선유도","당산","국회의사당","여의도","샛강","노량진","노들","흑석","동작","구반포","신반포","고속터미널","사평","신논현","언주","선정릉","삼성중앙","봉은사","종합운동장","삼전","석촌고분","석촌","송파나루","한성백제","올림픽공원","둔촌오륜","중앙보훈병원"],
             '경의중앙선': ["문산","파주","월롱","금촌","금릉","운정","야당","탄현","일산","풍산","백마","곡산","대곡","능곡","행신","강매","화전","수색","디지털미디어시티","가좌","홍대입구","서강대","공덕","효창공원앞","용산","이촌","서빙고","한남","옥수","응봉","왕십리","청량리","회기","중랑","상봉","망우","양원","구리","도농","양정","덕소","도심","팔당","운길산","양수","신원","아신","오빈","양평","원덕","용문","지평"],
+            '경의중앙선(서울)': ["가좌","신촌(경의)","서울역"],
             '수인분당선': ["청량리","왕십리","서울숲","압구정로데오","강남구청","선정릉","선릉","한티","도곡","구룡","개포동","대모산입구","수서","복정","가천대","태평","모란","야탑","이매","서현","수내","정자","미금","오리","죽전","보정","구성","신갈","기흥","상갈","청명","영통","망포","매탄권선","수원시청","매교","수원","고색","오목천","어천","야목","사리","한대앞","중앙","고잔","초지","안산","신길온천","정왕","오이도","달월","월곶","소래포구","인천논현","호구포","남동인더스파크","원인재","연수","송도","인하대","숭의","신포","인천"],
             '신분당선': ["신사","논현","신논현","강남","양재","양재시민의숲","청계산입구","판교","정자","미금","동천","수지구청","성복","상현","광교중앙","광교"],
             '공항철도': ["서울역","공덕","홍대입구","디지털미디어시티","마곡나루","김포공항","계양","검암","청라국제도시","영종","운서","공항화물청사","인천공항1터미널","인천공항2터미널"],
@@ -233,25 +239,47 @@
             '이수': '총신대입구(이수)', '총신대입구': '총신대입구(이수)', '총신대': '총신대입구(이수)', '총신대입구(이수)': '총신대입구(이수)',
             '동역사': '동대문역사문화공원', '디미시': '디지털미디어시티', '디엠씨': '디지털미디어시티',
             '고터': '고속터미널', '가디': '가산디지털단지', '구디': '구로디지털단지',
-            '건대': '건대입구', '홍대': '홍대입구', '숭실대': '숭실대입구', '서울': '서울역'
+            '건대': '건대입구', '홍대': '홍대입구', '숭실대': '숭실대입구', '서울': '서울역',
+            '신촌역': '신촌', '신촌(경의중앙선)': '신촌(경의)'
         };
 
         const allStationsSet = new Set();
         const stationLinesMap = {};
         const subwayGraph = {};
 
+        function addEdge(from, to, line, time = 2.5) {
+            if (!subwayGraph[from]) subwayGraph[from] = [];
+            if (!subwayGraph[from].some(e => e.neighbor === to && e.line === line)) {
+                subwayGraph[from].push({ neighbor: to, line: line, time: time });
+            }
+        }
+
         for (const [lineKey, stations] of Object.entries(RAW_LINES)) {
             const baseLine = lineKey.split('(')[0];
             if (!SUPPORTED_LINES.has(baseLine)) continue;
+
+            const isOneWayLoop = lineKey === '6호선(순환)';
+            const isCircleLine = lineKey === '2호선';
+
             for (let i = 0; i < stations.length; i++) {
                 const s = stations[i];
                 allStationsSet.add(s);
                 if (!stationLinesMap[s]) stationLinesMap[s] = new Set();
                 stationLinesMap[s].add(baseLine);
 
-                if (!subwayGraph[s]) subwayGraph[s] = [];
-                if (i > 0) subwayGraph[s].push({ neighbor: stations[i - 1], line: baseLine, time: 2.5 });
-                if (i < stations.length - 1) subwayGraph[s].push({ neighbor: stations[i + 1], line: baseLine, time: 2.5 });
+                if (i < stations.length - 1) {
+                    addEdge(stations[i], stations[i + 1], baseLine, 2.5);
+                    if (!isOneWayLoop) {
+                        addEdge(stations[i + 1], stations[i], baseLine, 2.5);
+                    }
+                }
+            }
+
+            if (isCircleLine && stations.length > 2) {
+                const first = stations[0];
+                const last = stations[stations.length - 1];
+                addEdge(last, first, baseLine, 2.5);
+                addEdge(first, last, baseLine, 2.5);
             }
         }
         const ALL_STATIONS = Array.from(allStationsSet).sort();
@@ -469,19 +497,34 @@
         function createSegmentInfo(line, stationsList) {
             const from = stationsList[0];
             const to = stationsList[stationsList.length - 1];
+            const nextSt = stationsList[1] || null;
             const stops = stationsList.length - 1;
             const timeSec = Math.max(120, stops * 150);
 
             let directionText = '';
             let isDownwardIndex = null;
-            const lineStations = RAW_LINES[line];
-            if (lineStations) {
-                const fIdx = lineStations.indexOf(from);
-                const tIdx = lineStations.indexOf(to);
-                if (fIdx !== -1 && tIdx !== -1 && fIdx !== tIdx) {
-                    isDownwardIndex = tIdx > fIdx;
-                    const terminalStation = isDownwardIndex ? lineStations[lineStations.length - 1] : lineStations[0];
-                    directionText = `${terminalStation}행`;
+
+            if (line === '2호선') {
+                const circle = RAW_LINES['2호선'];
+                const fIdx = circle.indexOf(from);
+                const nIdx = nextSt ? circle.indexOf(nextSt) : -1;
+                if (fIdx !== -1 && nIdx !== -1) {
+                    const isInner = (nIdx === (fIdx + 1) % circle.length);
+                    isDownwardIndex = isInner;
+                    directionText = isInner ? '내선순환' : '외선순환';
+                }
+            } else {
+                const lineStations = RAW_LINES[line];
+                if (lineStations) {
+                    const fIdx = lineStations.indexOf(from);
+                    const nIdx = nextSt ? lineStations.indexOf(nextSt) : lineStations.indexOf(to);
+                    if (fIdx !== -1 && nIdx !== -1 && fIdx !== nIdx) {
+                        isDownwardIndex = nIdx > fIdx;
+                        const terminalStation = isDownwardIndex ? lineStations[lineStations.length - 1] : lineStations[0];
+                        directionText = `${terminalStation}행`;
+                    } else if (nextSt) {
+                        directionText = `${nextSt} 방면`;
+                    }
                 }
             }
 
@@ -508,78 +551,154 @@
         let pollRemainSec = 20;
         let isPollingBusy = false;
 
-        // API의 recptnDt("YYYY-MM-DD HH:MM:SS")를 밀리초로 변환
         function parseRecptnMs(recptnDt) {
             if (!recptnDt) return Date.now();
             const parsed = Date.parse(recptnDt.replace(' ', 'T') + '+09:00');
             return isNaN(parsed) ? Date.now() : parsed;
         }
 
-        // recptnDt 시점 기준 남은 초(barvlDt 또는 arvlMsg2) 계산
-        function parseBaseWaitSeconds(train) {
+        function getStationDistanceOnLine(targetLine, stationA, stationB) {
+            if (!stationA || !stationB) return null;
+            const cleanA = stationA.replace(/\(.*?\)/g, '').trim();
+            const cleanB = stationB.replace(/\(.*?\)/g, '').trim();
+
+            if (targetLine === '2호선') {
+                const circle = RAW_LINES['2호선'];
+                const idxA = circle.findIndex(st => st.replace(/\(.*?\)/g, '') === cleanA);
+                const idxB = circle.findIndex(st => st.replace(/\(.*?\)/g, '') === cleanB);
+                if (idxA !== -1 && idxB !== -1) {
+                    const diff = Math.abs(idxA - idxB);
+                    return Math.min(diff, circle.length - diff);
+                }
+            }
+
+            for (const [key, list] of Object.entries(RAW_LINES)) {
+                if (key.split('(')[0] !== targetLine) continue;
+                const idxA = list.findIndex(st => st.replace(/\(.*?\)/g, '') === cleanA);
+                const idxB = list.findIndex(st => st.replace(/\(.*?\)/g, '') === cleanB);
+                if (idxA !== -1 && idxB !== -1) {
+                    return Math.abs(idxA - idxB);
+                }
+            }
+            return null;
+        }
+
+        function estimateSecondsFromTrainPosition(train, startStation, targetLine) {
+            const rawLoc = (train.arvlMsg3 || '').replace(/역$/, '').trim();
+            const msg = train.arvlMsg2 || '';
+            const cd = String(train.arvlCd || '').trim();
+
+            const stopMatch = msg.match(/\[(\d+)\]\s*번째\s*전역/);
+            let stopsAway = stopMatch ? Math.max(1, parseInt(stopMatch[1], 10)) : null;
+
+            const indexDiff = getStationDistanceOnLine(targetLine, startStation, rawLoc);
+            if (indexDiff !== null) {
+                stopsAway = stopsAway !== null ? Math.min(stopsAway, indexDiff) : indexDiff;
+            }
+
+            let stateOffsetSec = 0;
+            if (cd === '1' || msg.includes('당역도착') || msg.includes(`${startStation} 도착`)) {
+                stateOffsetSec = -90;
+            } else if (cd === '0' || msg.includes('진입')) {
+                stateOffsetSec = -105;
+            } else if (cd === '2' || msg.includes('출발')) {
+                stateOffsetSec = -50;
+            } else if (cd === '5' || msg.includes('전역도착')) {
+                stateOffsetSec = -60;
+            } else if (cd === '3' || cd === '4' || msg.includes('전역')) {
+                stateOffsetSec = -30;
+            }
+
+            if (stopsAway !== null) {
+                if (stopsAway === 0) {
+                    return Math.max(20, 90 + stateOffsetSec);
+                }
+                return Math.max(25, stopsAway * 140 + stateOffsetSec);
+            }
+
             const sec = parseInt(train.barvlDt, 10);
             if (!isNaN(sec) && sec > 0) return sec;
 
-            const msg = train.arvlMsg2 || '';
             const mMatch = msg.match(/(\d+)\s*분/);
             const sMatch = msg.match(/(\d+)\s*초/);
             if (mMatch || sMatch) {
                 return (mMatch ? parseInt(mMatch[1], 10) : 0) * 60 + (sMatch ? parseInt(sMatch[1], 10) : 0);
             }
-            const stopMatch = msg.match(/\[(\d+)\]\s*번째\s*전역/);
-            if (stopMatch) {
-                return Math.max(40, parseInt(stopMatch[1], 10) * 145);
-            }
-            if (msg.includes('당역도착') || msg.includes('도착')) return 15;
-            if (msg.includes('진입')) return 35;
-            if (msg.includes('전역출발') || msg.includes('전역진입')) return 85;
-            if (msg.includes('전역도착')) return 60;
+
             return 180;
         }
 
-        // recptnDt 경과 시간을 반영한 절대 승강장 도착 시각(ms) 산출
-        function computeTrainArrivalMs(train) {
+        function computeTrainArrivalMs(train, startStation, targetLine) {
+            const now = Date.now();
+            const posWaitSec = estimateSecondsFromTrainPosition(train, startStation, targetLine);
             const recptnMs = parseRecptnMs(train.recptnDt);
-            const baseWaitSec = parseBaseWaitSeconds(train);
-            const targetMs = recptnMs + baseWaitSec * 1000;
-            // 이미 지나간 수신 시각이라면 최소 10초 후로 보정
-            return Math.max(Date.now() + 10000, targetMs);
+
+            if (recptnMs && recptnMs <= now + 30000 && (now - recptnMs) < 180000) {
+                const elapsedSec = Math.max(0, Math.floor((now - recptnMs) / 1000));
+                return now + Math.max(20, posWaitSec - elapsedSec) * 1000;
+            }
+
+            return now + Math.max(20, posWaitSec) * 1000;
         }
 
         function isTrainMatchingDirection(train, startStation, nextStation, targetLine, isDownwardIndex) {
             const apiLine = resolveApiLineName(train);
             if (!apiLine || apiLine !== targetLine) return false;
 
-            const lineStations = RAW_LINES[targetLine] || [];
             const trainLineNm = (train.trainLineNm || '').replace(/\s+/g, '');
             const updn = String(train.updnLine || '').trim();
 
+            // 1. trainLineNm에 'OO방면'이 명시되어 있으면 최우선 판별
             if (nextStation && trainLineNm.includes('방면')) {
                 const cleanNext = nextStation.replace(/\(.*?\)/g, '');
                 if (trainLineNm.includes(`${cleanNext}방면`) || trainLineNm.includes(`${nextStation}방면`)) {
                     return true;
                 }
-                const sIdx = lineStations.indexOf(startStation);
-                if (sIdx !== -1) {
-                    const prevSt = lineStations[sIdx - 1];
-                    const nextSt = lineStations[sIdx + 1];
-                    const oppositeSt = (prevSt === nextStation) ? nextSt : prevSt;
-                    if (oppositeSt) {
-                        const cleanOpp = oppositeSt.replace(/\(.*?\)/g, '');
-                        if (trainLineNm.includes(`${cleanOpp}방면`) || trainLineNm.includes(`${oppositeSt}방면`)) {
-                            return false;
+
+                if (targetLine === '2호선') {
+                    const circle = RAW_LINES['2호선'];
+                    const sIdx = circle.indexOf(startStation);
+                    if (sIdx !== -1) {
+                        const innerNext = circle[(sIdx + 1) % circle.length];
+                        const outerNext = circle[(sIdx - 1 + circle.length) % circle.length];
+                        const oppSt = (innerNext === nextStation) ? outerNext : innerNext;
+                        if (oppSt && trainLineNm.includes(`${oppSt.replace(/\(.*?\)/g, '')}방면`)) return false;
+                    }
+                } else {
+                    const lineStations = RAW_LINES[targetLine] || [];
+                    const sIdx = lineStations.indexOf(startStation);
+                    if (sIdx !== -1) {
+                        const prevSt = lineStations[sIdx - 1];
+                        const nextSt = lineStations[sIdx + 1];
+                        const oppositeSt = (prevSt === nextStation) ? nextSt : prevSt;
+                        if (oppositeSt) {
+                            const cleanOpp = oppositeSt.replace(/\(.*?\)/g, '');
+                            if (trainLineNm.includes(`${cleanOpp}방면`) || trainLineNm.includes(`${oppositeSt}방면`)) {
+                                return false;
+                            }
                         }
                     }
                 }
             }
 
-            const destName = (train.bstatnNm || train.statnTnm || '').replace(/\(.*?\)/g, '').trim();
-            const sIdx = lineStations.indexOf(startStation);
-            const dIdx = lineStations.findIndex(st => st.replace(/\(.*?\)/g, '') === destName);
-            if (sIdx !== -1 && dIdx !== -1 && sIdx !== dIdx && isDownwardIndex !== null) {
-                return isDownwardIndex ? (dIdx > sIdx) : (dIdx < sIdx);
+            // 2. 2호선 내선/외선 판별
+            if (targetLine === '2호선' && isDownwardIndex !== null) {
+                if (updn === '내선' || trainLineNm.includes('내선')) return isDownwardIndex === true;
+                if (updn === '외선' || trainLineNm.includes('외선')) return isDownwardIndex === false;
             }
 
+            // 3. 종착역(bstatnNm) 위치 비교
+            if (targetLine !== '2호선') {
+                const lineStations = RAW_LINES[targetLine] || [];
+                const destName = (train.bstatnNm || train.statnTnm || '').replace(/\(.*?\)/g, '').trim();
+                const sIdx = lineStations.indexOf(startStation);
+                const dIdx = lineStations.findIndex(st => st.replace(/\(.*?\)/g, '') === destName);
+                if (sIdx !== -1 && dIdx !== -1 && sIdx !== dIdx && isDownwardIndex !== null) {
+                    return isDownwardIndex ? (dIdx > sIdx) : (dIdx < sIdx);
+                }
+            }
+
+            // 4. 상행/하행 판별
             if (isDownwardIndex !== null) {
                 if (updn === '하행' || updn === '1') return isDownwardIndex === true;
                 if (updn === '상행' || updn === '0') return isDownwardIndex === false;
@@ -590,7 +709,7 @@
         async function fetchStationLineTrains(stationName, targetLine, nextStation, isDownwardIndex) {
             lastApiErrorNote = '';
             if (!SUPPORTED_LINES.has(targetLine)) return [];
-            const cleanSt = stationName.endsWith('역') ? stationName.slice(0, -1) : stationName;
+            const cleanSt = stationName.replace(/\(.*?\)/g, '').replace(/역$/, '').trim();
 
             const isLocal = ["localhost", "127.0.0.1", ""].includes(window.location.hostname);
             const url = isLocal
@@ -612,7 +731,7 @@
                 const matched = allSupported.filter(t => isTrainMatchingDirection(t, stationName, nextStation, targetLine, isDownwardIndex));
 
                 const mapped = matched.map(t => {
-                    const arrivalMs = computeTrainArrivalMs(t);
+                    const arrivalMs = computeTrainArrivalMs(t, stationName, targetLine);
                     return {
                         raw: t,
                         line: targetLine,
