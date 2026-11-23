@@ -92,7 +92,7 @@
                         <span id="cardLineBadge" class="px-2 py-0.5 rounded text-white font-black text-[10px]">-</span>
                         <span id="cardTrainHeading" class="text-yellow-300 font-extrabold">-</span>
                     </span>
-                    <button type="button" onclick="manualRefresh()" class="text-indigo-300 hover:text-white flex items-center gap-1 font-bold">
+                    <button type="button" onclick="manualRefresh()" class="text-indigo-300 hover:text-white flex items-center gap-1 font-bold cursor-pointer">
                         <i id="refreshSpin" class="fa-solid fa-rotate-right text-[10px]"></i>
                         <span id="pollCountdownLabel">20초 뒤 갱신</span>
                     </button>
@@ -159,11 +159,12 @@
     <script>
         const SEOUL_API_KEY = "6c67546d4172686b38347542595741";
 
+        // 서해선(1093) 제외
         const SUBWAY_ID_MAP = {
             '1001': '1호선', '1002': '2호선', '1003': '3호선', '1004': '4호선',
             '1005': '5호선', '1006': '6호선', '1007': '7호선', '1008': '8호선',
             '1009': '9호선', '1063': '경의중앙선', '1065': '공항철도', '1067': '경춘선',
-            '1075': '수인분당선', '1077': '신분당선', '1092': '우이신설선', '1093': '서해선',
+            '1075': '수인분당선', '1077': '신분당선', '1092': '우이신설선',
             '1081': '경강선'
         };
 
@@ -176,7 +177,7 @@
             '7호선': { bg: '#747F00', short: '7' }, '8호선': { bg: '#E6186C', short: '8' },
             '9호선': { bg: '#BDB092', short: '9' }, '경의중앙선': { bg: '#77C4A3', short: '경' },
             '수인분당선': { bg: '#F5A200', short: '수' }, '신분당선': { bg: '#D4003B', short: '신' },
-            '공항철도': { bg: '#0090D2', short: '공' }, '서해선': { bg: '#81A914', short: '서' },
+            '공항철도': { bg: '#0090D2', short: '공' },
             '경춘선': { bg: '#178C72', short: '춘' }, '경강선': { bg: '#003DA5', short: '강' },
             '우이신설선': { bg: '#B0CE18', short: '우' }
         };
@@ -185,8 +186,7 @@
             '금정|1호선|4호선': 50, '복정|8호선|수인분당선': 70, '충무로|3호선|4호선': 90,
             '까치산|2호선|5호선': 90, '동대문역사문화공원|2호선|4호선': 100, '수서|3호선|수인분당선': 110,
             '옥수|3호선|경의중앙선': 120, '이촌|4호선|경의중앙선': 130, '대곡|3호선|경의중앙선': 150,
-            '대곡|3호선|서해선': 150, '대곡|경의중앙선|서해선': 90, '백마|경의중앙선|서해선': 60,
-            '일산|경의중앙선|서해선': 60, '신도림|1호선|2호선': 150, '사당|2호선|4호선': 190,
+            '신도림|1호선|2호선': 150, '사당|2호선|4호선': 190,
             '총신대입구(이수)|4호선|7호선': 210, '건대입구|2호선|7호선': 210, '교대|2호선|3호선': 200,
             '선릉|2호선|수인분당선': 180, '강남|2호선|신분당선': 220, '양재|3호선|신분당선': 210,
             '용산|1호선|경의중앙선': 180, '왕십리|2호선|5호선': 180, '왕십리|2호선|경의중앙선': 210,
@@ -195,8 +195,7 @@
             '디지털미디어시티|6호선|공항철도': 390, '디지털미디어시티|6호선|경의중앙선': 390,
             '공덕|5호선|6호선': 210, '공덕|5호선|공항철도': 300, '고속터미널|3호선|7호선': 240,
             '고속터미널|3호선|9호선': 390, '고속터미널|7호선|9호선': 360, '종로3가|1호선|5호선': 390,
-            '여의도|5호선|9호선': 300, '노량진|1호선|9호선': 330, '김포공항|5호선|9호선': 180,
-            '부천종합운동장|7호선|서해선': 300
+            '여의도|5호선|9호선': 300, '노량진|1호선|9호선': 330, '김포공항|5호선|9호선': 180
         };
 
         function getTransferWalkSeconds(station, lineA, lineB) {
@@ -222,7 +221,6 @@
             '8호선': ["별내","다산","동구릉","구리","장자호수공원","암사역사공원","암사","천호","강동구청","몽촌토성","잠실","석촌","송파","가락시장","문정","장지","복정","산성","남한산성입구","단대오거리","신흥","수진","모란"],
             '9호선': ["개화","김포공항","공항시장","신방화","마곡나루","양천향교","가양","증미","등촌","염창","신목동","선유도","당산","국회의사당","여의도","샛강","노량진","노들","흑석","동작","구반포","신반포","고속터미널","사평","신논현","언주","선정릉","삼성중앙","봉은사","종합운동장","삼전","석촌고분","석촌","송파나루","한성백제","올림픽공원","둔촌오륜","중앙보훈병원"],
             '경의중앙선': ["문산","파주","월롱","금촌","금릉","운정","야당","탄현","일산","풍산","백마","곡산","대곡","능곡","행신","강매","화전","수색","디지털미디어시티","가좌","홍대입구","서강대","공덕","효창공원앞","용산","이촌","서빙고","한남","옥수","응봉","왕십리","청량리","회기","중랑","상봉","망우","양원","구리","도농","양정","덕소","도심","팔당","운길산","양수","신원","아신","오빈","양평","원덕","용문","지평"],
-            '서해선': ["일산","풍산","백마","곡산","대곡","능곡","김포공항","원종","부천종합운동장","소새울","소사","시흥대야","신천","신현","시흥시청","시흥능곡","달미","선부","초지","시우","원시"],
             '수인분당선': ["청량리","왕십리","서울숲","압구정로데오","강남구청","선정릉","선릉","한티","도곡","구룡","개포동","대모산입구","수서","복정","가천대","태평","모란","야탑","이매","서현","수내","정자","미금","오리","죽전","보정","구성","신갈","기흥","상갈","청명","영통","망포","매탄권선","수원시청","매교","수원","고색","오목천","어천","야목","사리","한대앞","중앙","고잔","초지","안산","신길온천","정왕","오이도","달월","월곶","소래포구","인천논현","호구포","남동인더스파크","원인재","연수","송도","인하대","숭의","신포","인천"],
             '신분당선': ["신사","논현","신논현","강남","양재","양재시민의숲","청계산입구","판교","정자","미금","동천","수지구청","성복","상현","광교중앙","광교"],
             '공항철도': ["서울역","공덕","홍대입구","디지털미디어시티","마곡나루","김포공항","계양","검암","청라국제도시","영종","운서","공항화물청사","인천공항1터미널","인천공항2터미널"],
@@ -500,7 +498,6 @@
         let selectedTrainIdx = 0;
         let expandedSegments = {};
 
-        let fetchedAtMs = Date.now();
         let activeBoardTargetMs = Date.now() + 180 * 1000;
         let activeFinalTargetMs = Date.now() + 180 * 1000;
         let activeTrainSummary = null;
@@ -511,9 +508,18 @@
         let pollRemainSec = 20;
         let isPollingBusy = false;
 
-        function parseWaitSeconds(train) {
+        // API의 recptnDt("YYYY-MM-DD HH:MM:SS")를 밀리초로 변환
+        function parseRecptnMs(recptnDt) {
+            if (!recptnDt) return Date.now();
+            const parsed = Date.parse(recptnDt.replace(' ', 'T') + '+09:00');
+            return isNaN(parsed) ? Date.now() : parsed;
+        }
+
+        // recptnDt 시점 기준 남은 초(barvlDt 또는 arvlMsg2) 계산
+        function parseBaseWaitSeconds(train) {
             const sec = parseInt(train.barvlDt, 10);
             if (!isNaN(sec) && sec > 0) return sec;
+
             const msg = train.arvlMsg2 || '';
             const mMatch = msg.match(/(\d+)\s*분/);
             const sMatch = msg.match(/(\d+)\s*초/);
@@ -522,13 +528,22 @@
             }
             const stopMatch = msg.match(/\[(\d+)\]\s*번째\s*전역/);
             if (stopMatch) {
-                return Math.max(30, parseInt(stopMatch[1], 10) * 150);
+                return Math.max(40, parseInt(stopMatch[1], 10) * 145);
             }
             if (msg.includes('당역도착') || msg.includes('도착')) return 15;
             if (msg.includes('진입')) return 35;
-            if (msg.includes('전역출발') || msg.includes('전역진입')) return 90;
+            if (msg.includes('전역출발') || msg.includes('전역진입')) return 85;
             if (msg.includes('전역도착')) return 60;
             return 180;
+        }
+
+        // recptnDt 경과 시간을 반영한 절대 승강장 도착 시각(ms) 산출
+        function computeTrainArrivalMs(train) {
+            const recptnMs = parseRecptnMs(train.recptnDt);
+            const baseWaitSec = parseBaseWaitSeconds(train);
+            const targetMs = recptnMs + baseWaitSec * 1000;
+            // 이미 지나간 수신 시각이라면 최소 10초 후로 보정
+            return Math.max(Date.now() + 10000, targetMs);
         }
 
         function isTrainMatchingDirection(train, startStation, nextStation, targetLine, isDownwardIndex) {
@@ -594,21 +609,22 @@
                     return [];
                 }
                 const allSupported = (data.realtimeArrivalList || []).filter(t => resolveApiLineName(t) === targetLine);
-                let matched = allSupported.filter(t => isTrainMatchingDirection(t, stationName, nextStation, targetLine, isDownwardIndex));
+                const matched = allSupported.filter(t => isTrainMatchingDirection(t, stationName, nextStation, targetLine, isDownwardIndex));
 
-                if (matched.length === 0 && allSupported.length > 0) {
-                    matched = allSupported;
-                }
+                const mapped = matched.map(t => {
+                    const arrivalMs = computeTrainArrivalMs(t);
+                    return {
+                        raw: t,
+                        line: targetLine,
+                        arrivalMs: arrivalMs,
+                        heading: t.trainLineNm || (t.statnTnm ? `${t.statnTnm}행` : ''),
+                        currentLoc: t.arvlMsg3 ? `${t.arvlMsg3}역` : '실시간 위치 수신',
+                        statusMsg: t.arvlMsg2 || '접근 중'
+                    };
+                });
 
-                matched.sort((a, b) => parseWaitSeconds(a) - parseWaitSeconds(b));
-                return matched.map(t => ({
-                    raw: t,
-                    line: targetLine,
-                    waitSec: parseWaitSeconds(t),
-                    heading: t.trainLineNm || (t.statnTnm ? `${t.statnTnm}행` : ''),
-                    currentLoc: t.arvlMsg3 ? `${t.arvlMsg3}역` : '실시간 위치 수신',
-                    statusMsg: t.arvlMsg2 || '접근 중'
-                }));
+                mapped.sort((a, b) => a.arrivalMs - b.arrivalMs);
+                return mapped;
             } catch (e) {
                 lastApiErrorNote = isLocal ? '로컬 API 호출 실패' : '/api/subway 연결 실패';
                 return [];
@@ -725,7 +741,6 @@
 
             const firstSeg = cand.segments[0];
             const nextSt = firstSeg.stations[1] || null;
-            fetchedAtMs = Date.now();
             liveTrainCandidates = await fetchStationLineTrains(firstSeg.from, firstSeg.line, nextSt, firstSeg.isDownwardIndex);
 
             if (selectedTrainIdx >= liveTrainCandidates.length) {
@@ -752,7 +767,7 @@
             if (liveTrainCandidates.length > 0) {
                 const chosen = liveTrainCandidates[selectedTrainIdx];
                 activeTrainSummary = chosen;
-                activeBoardTargetMs = fetchedAtMs + chosen.waitSec * 1000;
+                activeBoardTargetMs = chosen.arrivalMs;
                 activeFinalTargetMs = activeBoardTargetMs + cand.totalTravelSec * 1000;
 
                 document.getElementById('cardTrainHeading').innerText = chosen.heading || firstSeg.directionText || '운행 중';
@@ -765,14 +780,14 @@
                 else resetBtn.classList.add('hidden');
             } else {
                 activeTrainSummary = null;
-                activeBoardTargetMs = fetchedAtMs + 180 * 1000;
+                activeBoardTargetMs = Date.now() + 180 * 1000;
                 activeFinalTargetMs = activeBoardTargetMs + cand.totalTravelSec * 1000;
 
                 document.getElementById('cardTrainHeading').innerText = firstSeg.directionText || `${firstSeg.line} 열차`;
-                document.getElementById('liveTrainLocText').innerText = '실시간 위치 대기 중';
-                document.getElementById('liveTrainMsgText').innerText = lastApiErrorNote || '해당 방향 실시간 열차 없음';
+                document.getElementById('liveTrainLocText').innerText = '운행 열차 대기 중';
+                document.getElementById('liveTrainMsgText').innerText = lastApiErrorNote || '해당 방향 접근 열차 없음';
 
-                candBadge.innerText = lastApiErrorNote ? lastApiErrorNote : '실시간 열차 정보 대기 중';
+                candBadge.innerText = lastApiErrorNote ? lastApiErrorNote : '접근 중인 실시간 열차 없음';
                 candBadge.className = 'text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full';
                 resetBtn.classList.add('hidden');
             }
@@ -994,12 +1009,13 @@
 
             if (trains.length === 0) {
                 document.getElementById('modalBody').innerHTML =
-                    `<div class="py-6 text-center text-slate-400">${lastApiErrorNote || '현재 해당 노선의 실시간 수신 열차가 없습니다.'}</div>`;
+                    `<div class="py-6 text-center text-slate-400">${lastApiErrorNote || '현재 해당 노선·방향의 실시간 수신 열차가 없습니다.'}</div>`;
                 return;
             }
 
             document.getElementById('modalBody').innerHTML = trains.map((tr, i) => {
-                const etaDate = new Date(now + tr.waitSec * 1000);
+                const etaDate = new Date(tr.arrivalMs);
+                const remainSec = Math.max(0, Math.floor((tr.arrivalMs - now) / 1000));
                 return `
                     <div class="flex items-center justify-between p-3 rounded-xl border ${i === 0 ? 'bg-emerald-50 border-emerald-300' : 'bg-slate-50 border-slate-200'}">
                         <div class="min-w-0">
@@ -1008,7 +1024,7 @@
                         </div>
                         <div class="text-right shrink-0 ml-2">
                             <div class="font-mono font-black text-sm text-indigo-700">${formatClockHMS(etaDate)}</div>
-                            <div class="font-mono font-bold text-[11px] text-emerald-700">${formatRemainMinSec(tr.waitSec)} 남음</div>
+                            <div class="font-mono font-bold text-[11px] text-emerald-700">${formatRemainMinSec(remainSec)} 남음</div>
                         </div>
                     </div>
                 `;
