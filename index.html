@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>실시간 열차 위치 기반 도착 타이머 & 길찾기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        * { font-family: 'Pretendard', sans-serif; }
+        .autocomplete-dropdown {
+            max-height: 240px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+        .autocomplete-dropdown::-webkit-scrollbar { width: 4px; }
+        .autocomplete-dropdown::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 9999px; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen py-4 px-3">
+    <div class="max-w-md mx-auto bg-white rounded-3xl shadow-lg overflow-hidden border border-slate-200/80">
+
+        <!-- 1. 상단 출발역 ↔ 도착역 입력 헤더 -->
+        <div class="p-3.5 bg-white border-b border-slate-100 relative">
+            <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2">
+                <div class="flex items-center gap-1.5 flex-1 min-w-0 relative">
+                    <i class="fa-solid fa-location-arrow text-emerald-500 text-xs shrink-0"></i>
+                    <input type="text" id="startInput" value="백마" placeholder="출발역" autocomplete="off"
+                           class="w-full text-sm font-bold text-slate-800 bg-transparent outline-none truncate">
+                    <div id="startDropdown" class="autocomplete-dropdown hidden fixed sm:absolute left-0 top-10 w-64 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 divide-y divide-slate-100"></div>
+                </div>
+
+                <button type="button" onclick="swapStations()" title="출발/도착 맞바꾸기"
+                        class="w-7 h-7 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-emerald-600 flex items-center justify-center shrink-0 transition active:scale-90">
+                    <i class="fa-solid fa-right-left text-[11px]"></i>
+                </button>
+
+                <div class="flex items-center gap-1.5 flex-1 min-w-0 relative">
+                    <i class="fa-solid fa-location-dot text-rose-500 text-xs shrink-0"></i>
+                    <input type="text" id="destInput" value="숭실대입구" placeholder="도착역" autocomplete="off"
+                           class="w-full text-sm font-bold text-slate-800 bg-transparent outline-none truncate">
+                    <div id="destDropdown" class="autocomplete-dropdown hidden fixed sm:absolute right-0 top-10 w-64 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 divide-y divide-slate-100"></div>
+                </div>
+
+                <button type="button" onclick="searchRoutesAndTrains()"
+                        class="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shrink-0 transition">
+                    조회
+                </button>
+            </div>
+        </div>
+
+        <!-- 2. 실시간 열차 후보 전환 (< 이전 열차 / > 다음 열차) -->
+        <div class="px-4 py-3 bg-white border-b border-slate-100 flex items-center justify-between">
+            <button type="button" onclick="shiftLiveTrainIndex(-1)" title="앞선 실시간 열차"
+                    class="w-9 h-9 rounded-full border border-slate-200 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-600 flex items-center justify-center transition shadow-2xs cursor-pointer">
+                <i class="fa-solid fa-chevron-left text-xs"></i>
+            </button>
+
+            <div class="text-center min-w-0 px-2">
+                <div class="flex items-center justify-center gap-1.5">
+                    <span id="headerDepartureText" class="text-[15px] font-extrabold text-slate-900 tracking-tight font-mono">
+                        --:--:-- 탑승 예정
+                    </span>
+                </div>
+                <div class="mt-0.5 flex items-center justify-center gap-1.5 flex-wrap">
+                    <span id="trainCandidateBadge" class="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                        실시간 열차 확인 중
+                    </span>
+                    <button type="button" id="resetNowBtn" onclick="resetLiveTrainIndex()"
+                            class="hidden text-[10px] font-bold text-indigo-600 underline hover:text-indigo-800">
+                        가장 빠른 열차로
+                    </button>
+                </div>
+            </div>
+
+            <button type="button" onclick="shiftLiveTrainIndex(1)" title="뒤따르는 실시간 열차"
+                    class="w-9 h-9 rounded-full border border-slate-200 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-600 flex items-center justify-center transition shadow-2xs cursor-pointer">
+                <i class="fa-solid fa-chevron-right text-xs"></i>
+            </button>
+        </div>
+
+        <!-- 3. 경로 옵션 칩 -->
+        <div class="px-4 pt-3 pb-2 bg-white flex items-center gap-2 overflow-x-auto" id="routeFilterChips"></div>
+
+        <!-- 4. 실시간 위치 & 초 단위 도착 카운트다운 카드 -->
+        <div id="summarySection" class="px-4 pt-2 pb-4 bg-white border-b border-slate-100 hidden space-y-3">
+            <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white rounded-2xl p-4 shadow-md">
+                <div class="flex items-center justify-between text-[11px] text-slate-300 font-semibold mb-2">
+                    <span class="flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                        <span id="cardLineBadge" class="px-2 py-0.5 rounded text-white font-black text-[10px]">-</span>
+                        <span id="cardTrainHeading" class="text-yellow-300 font-extrabold">-</span>
+                    </span>
+                    <button type="button" onclick="manualRefresh()" class="text-indigo-300 hover:text-white flex items-center gap-1 font-bold">
+                        <i id="refreshSpin" class="fa-solid fa-rotate-right text-[10px]"></i>
+                        <span id="pollCountdownLabel">20초 뒤 갱신</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2.5 mt-2">
+                    <div class="bg-white/10 rounded-xl p-2.5">
+                        <div class="text-[10px] text-slate-300 font-medium">승강장 도착까지</div>
+                        <div id="boardRemainSecText" class="text-lg font-black text-yellow-300 font-mono mt-0.5">--분 --초</div>
+                        <div class="text-[11px] text-slate-200 font-mono mt-0.5">
+                            도착 <span id="boardClockText" class="font-bold">--:--:--</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-white/10 rounded-xl p-2.5">
+                        <div class="text-[10px] text-slate-300 font-medium">실시간 열차 위치</div>
+                        <div id="liveTrainLocText" class="text-sm font-extrabold text-emerald-300 mt-1 leading-snug">
+                            조회 중...
+                        </div>
+                        <div id="liveTrainMsgText" class="text-[10px] text-slate-300 mt-0.5 truncate">
+                            -
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-2.5 pt-2.5 border-t border-white/10 flex items-center justify-between">
+                    <div>
+                        <div class="text-[10px] text-emerald-200 font-semibold">최종 목적지 도착 예정 시각</div>
+                        <div id="finalArrivalClockText" class="text-xl font-black text-white font-mono">--:--:--</div>
+                    </div>
+                    <div class="text-right">
+                        <div id="totalDurationBig" class="text-sm font-extrabold text-emerald-300">-</div>
+                        <div id="finalRemainSecText" class="text-xs font-bold font-mono text-white mt-0.5">지금으로부터 --분 --초</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="summarySubText" class="text-xs text-slate-500 font-medium">-</div>
+            <div id="segmentProgressBar"></div>
+        </div>
+
+        <!-- 5. 상세 세로 타임라인 -->
+        <div id="timelineContainer" class="p-4 bg-white space-y-0"></div>
+
+    </div>
+
+    <!-- 역별 실시간 열차 상세 모달 -->
+    <div id="scheduleModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-3" onclick="closeModalOnBackdrop(event)">
+        <div class="bg-white w-full max-w-md rounded-3xl p-5 shadow-2xl max-h-[80vh] flex flex-col">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div>
+                    <span id="modalLineBadge" class="px-2 py-0.5 rounded text-white text-[11px] font-bold mr-1">노선</span>
+                    <span id="modalTitle" class="text-base font-black text-slate-900">역 실시간 열차</span>
+                </div>
+                <button type="button" onclick="closeScheduleModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-800 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+            <div id="modalSubtitle" class="text-xs text-slate-500 mt-2 mb-3"></div>
+            <div id="modalBody" class="overflow-y-auto space-y-2 pr-1 text-xs"></div>
+        </div>
+    </div>
+
+    <script>
+        const SEOUL_API_KEY = "6c67546d4172686b38347542595741";
+
+        const SUBWAY_ID_MAP = {
+            '1001': '1호선', '1002': '2호선', '1003': '3호선', '1004': '4호선',
+            '1005': '5호선', '1006': '6호선', '1007': '7호선', '1008': '8호선',
+            '1009': '9호선', '1063': '경의중앙선', '1065': '공항철도', '1067': '경춘선',
+            '1075': '수인분당선', '1077': '신분당선', '1092': '우이신설선', '1093': '서해선',
+            '1081': '경강선'
+        };
+
+        const SUPPORTED_LINES = new Set(Object.values(SUBWAY_ID_MAP));
+
+        const LINE_COLORS = {
+            '1호선': { bg: '#0052A4', short: '1' }, '2호선': { bg: '#00A84D', short: '2' },
+            '3호선': { bg: '#EF7C1C', short: '3' }, '4호선': { bg: '#00A5DE', short: '4' },
+            '5호선': { bg: '#996CAC', short: '5' }, '6호선': { bg: '#CD7C2F', short: '6' },
+            '7호선': { bg: '#747F00', short: '7' }, '8호선': { bg: '#E6186C', short: '8' },
+            '9호선': { bg: '#BDB092', short: '9' }, '경의중앙선': { bg: '#77C4A3', short: '경' },
+            '수인분당선': { bg: '#F5A200', short: '수' }, '신분당선': { bg: '#D4003B', short: '신' },
+            '공항철도': { bg: '#0090D2', short: '공' }, '서해선': { bg: '#81A914', short: '서' },
+            '경춘선': { bg: '#178C72', short: '춘' }, '경강선': { bg: '#003DA5', short: '강' },
+            '우이신설선': { bg: '#B0CE18', short: '우' }
+        };
+
+        const TRANSFER_WALK_SEC = {
+            '금정|1호선|4호선': 50, '복정|8호선|수인분당선': 70, '충무로|3호선|4호선': 90,
+            '까치산|2호선|5호선': 90, '동대문역사문화공원|2호선|4호선': 100, '수서|3호선|수인분당선': 110,
+            '옥수|3호선|경의중앙선': 120, '이촌|4호선|경의중앙선': 130, '대곡|3호선|경의중앙선': 150,
+            '대곡|3호선|서해선': 150, '대곡|경의중앙선|서해선': 90, '백마|경의중앙선|서해선': 60,
+            '일산|경의중앙선|서해선': 60, '신도림|1호선|2호선': 150, '사당|2호선|4호선': 190,
+            '총신대입구(이수)|4호선|7호선': 210, '건대입구|2호선|7호선': 210, '교대|2호선|3호선': 200,
+            '선릉|2호선|수인분당선': 180, '강남|2호선|신분당선': 220, '양재|3호선|신분당선': 210,
+            '용산|1호선|경의중앙선': 180, '왕십리|2호선|5호선': 180, '왕십리|2호선|경의중앙선': 210,
+            '왕십리|2호선|수인분당선': 210, '서울역|1호선|4호선': 270, '서울역|1호선|공항철도': 390,
+            '서울역|4호선|공항철도': 390, '홍대입구|2호선|공항철도': 360, '홍대입구|2호선|경의중앙선': 360,
+            '디지털미디어시티|6호선|공항철도': 390, '디지털미디어시티|6호선|경의중앙선': 390,
+            '공덕|5호선|6호선': 210, '공덕|5호선|공항철도': 300, '고속터미널|3호선|7호선': 240,
+            '고속터미널|3호선|9호선': 390, '고속터미널|7호선|9호선': 360, '종로3가|1호선|5호선': 390,
+            '여의도|5호선|9호선': 300, '노량진|1호선|9호선': 330, '김포공항|5호선|9호선': 180,
+            '부천종합운동장|7호선|서해선': 300
+        };
+
+        function getTransferWalkSeconds(station, lineA, lineB) {
+            if (!lineA || !lineB || lineA === lineB) return 0;
+            return TRANSFER_WALK_SEC[`${station}|${lineA}|${lineB}`] ?? TRANSFER_WALK_SEC[`${station}|${lineB}|${lineA}`] ?? 210;
+        }
+
+        function formatWalkDurationText(sec) {
+            const m = Math.floor(sec / 60);
+            const s = sec % 60;
+            return s === 0 ? `약 ${m}분` : `약 ${m}분 ${s}초`;
+        }
+
+        const RAW_LINES = {
+            '1호선': ["연천","전곡","청산","소요산","동두천","보산","동두천중앙","지행","덕정","덕계","양주","녹양","가능","의정부","회룡","망월사","도봉산","도봉","방학","창동","녹천","월계","광운대","석계","신이문","외대앞","회기","청량리","제기동","신설동","동묘앞","동대문","종로5가","종로3가","종각","시청","서울역","남영","용산","노량진","대방","신길","영등포","신도림","구로","가산디지털단지","독산","금천구청","석수","관악","안양","명학","금정","군포","당정","의왕","성균관대","화서","수원","세류","병점","세마","오산대","오산","진위","송탄","서정리","평택지제","평택","성환","직산","두정","천안","봉명","쌍용","아산","탕정","배방","온양온천","신창"],
+            '1호선(경인)': ["구로","구일","개봉","오류동","온수","역곡","소사","부천","중동","송내","부개","부평","백운","동암","간석","주안","도화","제물포","도원","동인천","인천"],
+            '2호선': ["시청","을지로입구","을지로3가","을지로4가","동대문역사문화공원","신당","상왕십리","왕십리","한양대","뚝섬","성수","건대입구","구의","강변","잠실나루","잠실","잠실새내","종합운동장","삼성","선릉","역삼","강남","교대","서초","방배","사당","낙성대","서울대입구","봉천","신림","신대방","구로디지털단지","대림","신도림","문래","영등포구청","당산","합정","홍대입구","신촌","이대","아현","충정로","시청"],
+            '3호선': ["대화","주엽","정발산","마두","백석","대곡","화정","원당","원흥","삼송","지축","구파발","연신내","불광","녹번","홍제","무악재","독립문","경복궁","안국","종로3가","을지로3가","충무로","동대문","약수","금호","옥수","압구정","신사","잠원","고속터미널","교대","남부터미널","양재","매봉","도곡","대치","학여울","대청","일원","수서","가락시장","경찰병원","오금"],
+            '4호선': ["진접","별내별가람","오남","당고개","상계","노원","창동","쌍문","수유","미아","미아사거리","길음","성신여대입구","한성대입구","혜화","동대문","동대문역사문화공원","충무로","명동","회현","서울역","숙대입구","삼각지","신용산","이촌","동작","총신대입구(이수)","사당","남태령","선바위","경마공원","대공원","과천","정부과천청사","인덕원","평촌","범계","금정","산본","수리산","대야미","반월","상록수","한대앞","중앙","고잔","초지","안산","신길온천","정왕","오이도"],
+            '5호선': ["방화","김포공항","송정","마곡","발산","우장산","화곡","까치산","신정","목동","오목교","양평","영등포구청","영등포시장","신길","여의도","여의나루","마포","공덕","애오개","충정로","서대문","광화문","종로3가","을지로4가","동대문역사문화공원","청구","신금호","행당","왕십리","마장","답십리","장한평","군자","아차산","광나루","천호","강동","길동","굽은다리","명일","고덕","상일동","강일","미사","하남풍산","하남시청","하남검단산"],
+            '6호선': ["응암","역촌","불광","독바위","연신내","구산","응암","새절","증산","디지털미디어시티","월드컵경기장","마포구청","망원","합정","상수","광흥창","대흥","공덕","효창공원앞","삼각지","녹사평","이태원","한강진","버티고개","약수","청구","신당","동묘앞","창신","보문","안암","고려대","월곡","상월곡","돌곶이","석계","태릉입구","화랑대","봉화산","신내"],
+            '7호선': ["장암","도봉산","수락산","마들","노원","중계","하계","공릉","태릉입구","먹골","중화","상봉","면목","사가정","용마산","중곡","군자","어린이대공원","건대입구","자양","청담","강남구청","학동","논현","반포","고속터미널","내방","총신대입구(이수)","남성","숭실대입구","상도","장승배기","신대방삼거리","보라매","신풍","대림","남구로","가산디지털단지","철산","광명사거리","천왕","온수","까치울","부천종합운동장","춘의","신중동","부천시청","상동","삼산체육관","굴포천","부평구청","산곡","석남"],
+            '8호선': ["별내","다산","동구릉","구리","장자호수공원","암사역사공원","암사","천호","강동구청","몽촌토성","잠실","석촌","송파","가락시장","문정","장지","복정","산성","남한산성입구","단대오거리","신흥","수진","모란"],
+            '9호선': ["개화","김포공항","공항시장","신방화","마곡나루","양천향교","가양","증미","등촌","염창","신목동","선유도","당산","국회의사당","여의도","샛강","노량진","노들","흑석","동작","구반포","신반포","고속터미널","사평","신논현","언주","선정릉","삼성중앙","봉은사","종합운동장","삼전","석촌고분","석촌","송파나루","한성백제","올림픽공원","둔촌오륜","중앙보훈병원"],
+            '경의중앙선': ["문산","파주","월롱","금촌","금릉","운정","야당","탄현","일산","풍산","백마","곡산","대곡","능곡","행신","강매","화전","수색","디지털미디어시티","가좌","홍대입구","서강대","공덕","효창공원앞","용산","이촌","서빙고","한남","옥수","응봉","왕십리","청량리","회기","중랑","상봉","망우","양원","구리","도농","양정","덕소","도심","팔당","운길산","양수","신원","아신","오빈","양평","원덕","용문","지평"],
+            '서해선': ["일산","풍산","백마","곡산","대곡","능곡","김포공항","원종","부천종합운동장","소새울","소사","시흥대야","신천","신현","시흥시청","시흥능곡","달미","선부","초지","시우","원시"],
+            '수인분당선': ["청량리","왕십리","서울숲","압구정로데오","강남구청","선정릉","선릉","한티","도곡","구룡","개포동","대모산입구","수서","복정","가천대","태평","모란","야탑","이매","서현","수내","정자","미금","오리","죽전","보정","구성","신갈","기흥","상갈","청명","영통","망포","매탄권선","수원시청","매교","수원","고색","오목천","어천","야목","사리","한대앞","중앙","고잔","초지","안산","신길온천","정왕","오이도","달월","월곶","소래포구","인천논현","호구포","남동인더스파크","원인재","연수","송도","인하대","숭의","신포","인천"],
+            '신분당선': ["신사","논현","신논현","강남","양재","양재시민의숲","청계산입구","판교","정자","미금","동천","수지구청","성복","상현","광교중앙","광교"],
+            '공항철도': ["서울역","공덕","홍대입구","디지털미디어시티","마곡나루","김포공항","계양","검암","청라국제도시","영종","운서","공항화물청사","인천공항1터미널","인천공항2터미널"],
+            '경춘선': ["청량리","회기","중랑","상봉","망우","갈매","별내","퇴계원","사릉","금곡","평내호평","천마산","마석","대성리","청평","상천","가평","굴봉산","백양리","강촌","김유정","남춘천","춘천"],
+            '경강선': ["판교","이매","삼동","경기광주","초월","곤지암","신둔도예촌","이천","부발","세종대왕릉","여주"],
+            '우이신설선': ["북한산우이","솔밭공원","4.19민주묘지","가오리","화계","삼양","삼양사거리","솔샘","정릉","보문","신설동"]
+        };
+
+        const STATION_ALIASES = {
+            '이수': '총신대입구(이수)', '총신대입구': '총신대입구(이수)', '총신대': '총신대입구(이수)', '총신대입구(이수)': '총신대입구(이수)',
+            '동역사': '동대문역사문화공원', '디미시': '디지털미디어시티', '디엠씨': '디지털미디어시티',
+            '고터': '고속터미널', '가디': '가산디지털단지', '구디': '구로디지털단지',
+            '건대': '건대입구', '홍대': '홍대입구', '숭실대': '숭실대입구', '서울': '서울역'
+        };
+
+        const allStationsSet = new Set();
+        const stationLinesMap = {};
+        const subwayGraph = {};
+
+        for (const [lineKey, stations] of Object.entries(RAW_LINES)) {
+            const baseLine = lineKey.split('(')[0];
+            if (!SUPPORTED_LINES.has(baseLine)) continue;
+            for (let i = 0; i < stations.length; i++) {
+                const s = stations[i];
+                allStationsSet.add(s);
+                if (!stationLinesMap[s]) stationLinesMap[s] = new Set();
+                stationLinesMap[s].add(baseLine);
+
+                if (!subwayGraph[s]) subwayGraph[s] = [];
+                if (i > 0) subwayGraph[s].push({ neighbor: stations[i - 1], line: baseLine, time: 2.5 });
+                if (i < stations.length - 1) subwayGraph[s].push({ neighbor: stations[i + 1], line: baseLine, time: 2.5 });
+            }
+        }
+        const ALL_STATIONS = Array.from(allStationsSet).sort();
+
+        const CHOSUNG = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+        function getChosung(str) {
+            let res = '';
+            for (let i = 0; i < str.length; i++) {
+                const code = str.charCodeAt(i) - 44032;
+                if (code >= 0 && code <= 11171) res += CHOSUNG[Math.floor(code / 588)];
+                else res += str.charAt(i);
+            }
+            return res;
+        }
+
+        function normalizeStationName(input) {
+            if (!input) return '';
+            let cleaned = input.trim();
+            if (STATION_ALIASES[cleaned.toLowerCase()]) return STATION_ALIASES[cleaned.toLowerCase()];
+            if (cleaned.endsWith('역') && cleaned.length > 2) {
+                const withoutYeok = cleaned.slice(0, -1);
+                if (ALL_STATIONS.includes(withoutYeok)) cleaned = withoutYeok;
+                else if (STATION_ALIASES[withoutYeok]) cleaned = STATION_ALIASES[withoutYeok];
+            }
+            return STATION_ALIASES[cleaned] || cleaned;
+        }
+
+        function resolveApiLineName(train) {
+            return SUBWAY_ID_MAP[String(train.subwayId || '').trim()] || null;
+        }
+
+        function setupAutocomplete(inputId, dropdownId) {
+            const inputEl = document.getElementById(inputId);
+            const dropdownEl = document.getElementById(dropdownId);
+
+            inputEl.addEventListener('input', function() {
+                const q = this.value.trim().toLowerCase();
+                if (!q) { dropdownEl.classList.add('hidden'); return; }
+
+                const cleanQ = q.endsWith('역') && q.length > 2 ? q.slice(0, -1) : q;
+                const chosungQ = getChosung(cleanQ);
+
+                const matches = ALL_STATIONS.filter(st =>
+                    st.toLowerCase().includes(cleanQ) ||
+                    getChosung(st).includes(chosungQ) ||
+                    (STATION_ALIASES[cleanQ] && st === STATION_ALIASES[cleanQ])
+                ).slice(0, 8);
+
+                if (matches.length === 0) {
+                    dropdownEl.innerHTML = `<div class="p-2.5 text-xs text-slate-400 text-center">일치하는 역 없음</div>`;
+                    dropdownEl.classList.remove('hidden');
+                    return;
+                }
+
+                dropdownEl.innerHTML = matches.map(st => `
+                    <div class="px-3 py-2 hover:bg-emerald-50 cursor-pointer flex items-center justify-between text-xs" onclick="selectStation('${inputId}', '${dropdownId}', '${st}')">
+                        <span class="font-bold text-slate-800">${st}</span>
+                        <span class="text-[10px] text-slate-400 font-medium">${Array.from(stationLinesMap[st] || []).join(', ')}</span>
+                    </div>
+                `).join('');
+                dropdownEl.classList.remove('hidden');
+            });
+
+            inputEl.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    dropdownEl.classList.add('hidden');
+                    searchRoutesAndTrains();
+                } else if (e.key === 'Escape') {
+                    dropdownEl.classList.add('hidden');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!inputEl.contains(e.target) && !dropdownEl.contains(e.target)) {
+                    dropdownEl.classList.add('hidden');
+                }
+            });
+        }
+
+        function selectStation(inputId, dropdownId, name) {
+            document.getElementById(inputId).value = name;
+            document.getElementById(dropdownId).classList.add('hidden');
+            searchRoutesAndTrains();
+        }
+
+        function swapStations() {
+            const s = document.getElementById('startInput');
+            const d = document.getElementById('destInput');
+            const tmp = s.value; s.value = d.value; d.value = tmp;
+            searchRoutesAndTrains();
+        }
+
+        function formatClockHMS(dateObj) {
+            const h = String(dateObj.getHours()).padStart(2, '0');
+            const m = String(dateObj.getMinutes()).padStart(2, '0');
+            const s = String(dateObj.getSeconds()).padStart(2, '0');
+            return `${h}:${m}:${s}`;
+        }
+
+        function formatClockHM(dateObj) {
+            const h = String(dateObj.getHours()).padStart(2, '0');
+            const m = String(dateObj.getMinutes()).padStart(2, '0');
+            return `${h}:${m}`;
+        }
+
+        function formatRemainMinSec(totalSec) {
+            const clamped = Math.max(0, Math.floor(totalSec));
+            const m = Math.floor(clamped / 60);
+            const s = clamped % 60;
+            return `${m}분 ${String(s).padStart(2, '0')}초`;
+        }
+
+        function formatDurationKorean(totalSec) {
+            const totalMin = Math.max(1, Math.round(totalSec / 60));
+            const h = Math.floor(totalMin / 60);
+            const m = totalMin % 60;
+            return h > 0 ? `약 ${h}시간 ${m}분` : `약 ${m}분`;
+        }
+
+        function runDijkstra(startStation, destStation, forcedStartLine = null, extraTransferPenaltyMin = 1.5) {
+            if (startStation === destStation) return null;
+            const queue = [];
+            const visited = new Map();
+
+            const startLines = forcedStartLine ? [forcedStartLine] : Array.from(stationLinesMap[startStation] || []);
+            for (const line of startLines) {
+                queue.push({ station: startStation, line: line, cost: 0, path: [{ station: startStation, line: line }] });
+                visited.set(`${startStation}::${line}`, 0);
+            }
+
+            let best = null;
+            while (queue.length > 0) {
+                queue.sort((a, b) => a.cost - b.cost);
+                const cur = queue.shift();
+                if (cur.station === destStation) { best = cur; break; }
+
+                for (const edge of (subwayGraph[cur.station] || [])) {
+                    const isTransfer = edge.line !== cur.line;
+                    const walkMin = isTransfer ? (getTransferWalkSeconds(cur.station, cur.line, edge.line) / 60) : 0;
+                    const penalty = isTransfer ? (walkMin + extraTransferPenaltyMin) : 0;
+                    const newCost = cur.cost + edge.time + penalty;
+                    const key = `${edge.neighbor}::${edge.line}`;
+
+                    if (visited.has(key) && visited.get(key) <= newCost) continue;
+                    visited.set(key, newCost);
+                    queue.push({
+                        station: edge.neighbor, line: edge.line, cost: newCost,
+                        path: [...cur.path, { station: edge.neighbor, line: edge.line }]
+                    });
+                }
+            }
+            return best;
+        }
+
+        function findMultipleCandidateRoutes(startStation, destStation) {
+            const candidates = [];
+            const seenSignatures = new Set();
+
+            function addCandidate(route, label) {
+                if (!route) return;
+                const segments = groupPathSegments(route.path);
+                const signature = segments.map(s => `${s.line}:${s.from}->${s.to}`).join('|');
+                if (!seenSignatures.has(signature)) {
+                    seenSignatures.add(signature);
+                    const rideSec = segments.reduce((acc, s) => acc + s.timeSec, 0);
+                    let transferSec = 0;
+                    for (let i = 0; i < segments.length - 1; i++) {
+                        transferSec += getTransferWalkSeconds(segments[i].to, segments[i].line, segments[i + 1].line) + 90;
+                    }
+                    candidates.push({
+                        label: label,
+                        segments: segments,
+                        totalTravelSec: rideSec + transferSec,
+                        stops: route.path.length - 1,
+                        transfers: segments.length - 1
+                    });
+                }
+            }
+
+            const rFast = runDijkstra(startStation, destStation, null, 1.5);
+            if (rFast) addCandidate(rFast, "최단 시간");
+
+            const rMinTransfer = runDijkstra(startStation, destStation, null, 22.0);
+            if (rMinTransfer) addCandidate(rMinTransfer, "최소 환승");
+
+            const startLines = Array.from(stationLinesMap[startStation] || []);
+            for (const line of startLines) {
+                const rLine = runDijkstra(startStation, destStation, line, 2.0);
+                if (rLine) addCandidate(rLine, `${line} 출발`);
+            }
+
+            return candidates.slice(0, 4);
+        }
+
+        function groupPathSegments(rawPath) {
+            if (!rawPath || rawPath.length < 2) return [];
+            const segs = [];
+            let curLine = rawPath[1].line;
+            let curSts = [rawPath[0].station, rawPath[1].station];
+
+            for (let i = 2; i < rawPath.length; i++) {
+                if (rawPath[i].line === curLine) {
+                    curSts.push(rawPath[i].station);
+                } else {
+                    segs.push(createSegmentInfo(curLine, curSts));
+                    curLine = rawPath[i].line;
+                    curSts = [rawPath[i - 1].station, rawPath[i].station];
+                }
+            }
+            segs.push(createSegmentInfo(curLine, curSts));
+            return segs;
+        }
+
+        function createSegmentInfo(line, stationsList) {
+            const from = stationsList[0];
+            const to = stationsList[stationsList.length - 1];
+            const stops = stationsList.length - 1;
+            const timeSec = Math.max(120, stops * 150);
+
+            let directionText = '';
+            let isDownwardIndex = null;
+            const lineStations = RAW_LINES[line];
+            if (lineStations) {
+                const fIdx = lineStations.indexOf(from);
+                const tIdx = lineStations.indexOf(to);
+                if (fIdx !== -1 && tIdx !== -1 && fIdx !== tIdx) {
+                    isDownwardIndex = tIdx > fIdx;
+                    const terminalStation = isDownwardIndex ? lineStations[lineStations.length - 1] : lineStations[0];
+                    directionText = `${terminalStation}행`;
+                }
+            }
+
+            return {
+                line: line, from: from, to: to, stops: stops,
+                timeSec: timeSec, timeMin: Math.max(2, Math.round(timeSec / 60)),
+                directionText: directionText, isDownwardIndex: isDownwardIndex, stations: stationsList
+            };
+        }
+
+        let candidateRoutes = [];
+        let selectedRouteIdx = 0;
+        let liveTrainCandidates = [];
+        let selectedTrainIdx = 0;
+        let expandedSegments = {};
+
+        let fetchedAtMs = Date.now();
+        let activeBoardTargetMs = Date.now() + 180 * 1000;
+        let activeFinalTargetMs = Date.now() + 180 * 1000;
+        let activeTrainSummary = null;
+        let lastApiErrorNote = '';
+
+        let secTicker = null;
+        let pollTicker = null;
+        let pollRemainSec = 20;
+        let isPollingBusy = false;
+
+        function parseWaitSeconds(train) {
+            const sec = parseInt(train.barvlDt, 10);
+            if (!isNaN(sec) && sec > 0) return sec;
+            const msg = train.arvlMsg2 || '';
+            const mMatch = msg.match(/(\d+)\s*분/);
+            const sMatch = msg.match(/(\d+)\s*초/);
+            if (mMatch || sMatch) {
+                return (mMatch ? parseInt(mMatch[1], 10) : 0) * 60 + (sMatch ? parseInt(sMatch[1], 10) : 0);
+            }
+            const stopMatch = msg.match(/\[(\d+)\]\s*번째\s*전역/);
+            if (stopMatch) {
+                return Math.max(30, parseInt(stopMatch[1], 10) * 150);
+            }
+            if (msg.includes('당역도착') || msg.includes('도착')) return 15;
+            if (msg.includes('진입')) return 35;
+            if (msg.includes('전역출발') || msg.includes('전역진입')) return 90;
+            if (msg.includes('전역도착')) return 60;
+            return 180;
+        }
+
+        function isTrainMatchingDirection(train, startStation, nextStation, targetLine, isDownwardIndex) {
+            const apiLine = resolveApiLineName(train);
+            if (!apiLine || apiLine !== targetLine) return false;
+
+            const lineStations = RAW_LINES[targetLine] || [];
+            const trainLineNm = (train.trainLineNm || '').replace(/\s+/g, '');
+            const updn = String(train.updnLine || '').trim();
+
+            if (nextStation && trainLineNm.includes('방면')) {
+                const cleanNext = nextStation.replace(/\(.*?\)/g, '');
+                if (trainLineNm.includes(`${cleanNext}방면`) || trainLineNm.includes(`${nextStation}방면`)) {
+                    return true;
+                }
+                const sIdx = lineStations.indexOf(startStation);
+                if (sIdx !== -1) {
+                    const prevSt = lineStations[sIdx - 1];
+                    const nextSt = lineStations[sIdx + 1];
+                    const oppositeSt = (prevSt === nextStation) ? nextSt : prevSt;
+                    if (oppositeSt) {
+                        const cleanOpp = oppositeSt.replace(/\(.*?\)/g, '');
+                        if (trainLineNm.includes(`${cleanOpp}방면`) || trainLineNm.includes(`${oppositeSt}방면`)) {
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            const destName = (train.bstatnNm || train.statnTnm || '').replace(/\(.*?\)/g, '').trim();
+            const sIdx = lineStations.indexOf(startStation);
+            const dIdx = lineStations.findIndex(st => st.replace(/\(.*?\)/g, '') === destName);
+            if (sIdx !== -1 && dIdx !== -1 && sIdx !== dIdx && isDownwardIndex !== null) {
+                return isDownwardIndex ? (dIdx > sIdx) : (dIdx < sIdx);
+            }
+
+            if (isDownwardIndex !== null) {
+                if (updn === '하행' || updn === '1') return isDownwardIndex === true;
+                if (updn === '상행' || updn === '0') return isDownwardIndex === false;
+            }
+            return true;
+        }
+
+        async function fetchStationLineTrains(stationName, targetLine, nextStation, isDownwardIndex) {
+            lastApiErrorNote = '';
+            if (!SUPPORTED_LINES.has(targetLine)) return [];
+            const cleanSt = stationName.endsWith('역') ? stationName.slice(0, -1) : stationName;
+
+            const isLocal = ["localhost", "127.0.0.1", ""].includes(window.location.hostname);
+            const url = isLocal
+                ? `http://swopenAPI.seoul.go.kr/api/subway/${SEOUL_API_KEY}/json/realtimeStationArrival/0/30/${encodeURIComponent(cleanSt)}`
+                : `/api/subway?station=${encodeURIComponent(cleanSt)}`;
+
+            try {
+                const res = await fetch(url);
+                if (!res.ok) {
+                    lastApiErrorNote = `응답 오류 (${res.status})`;
+                    return [];
+                }
+                const data = await res.json();
+                if (data.errorMessage && data.errorMessage.code && data.errorMessage.code !== 'INFO-000') {
+                    lastApiErrorNote = data.errorMessage.message || data.errorMessage.code;
+                    return [];
+                }
+                const allSupported = (data.realtimeArrivalList || []).filter(t => resolveApiLineName(t) === targetLine);
+                let matched = allSupported.filter(t => isTrainMatchingDirection(t, stationName, nextStation, targetLine, isDownwardIndex));
+
+                if (matched.length === 0 && allSupported.length > 0) {
+                    matched = allSupported;
+                }
+
+                matched.sort((a, b) => parseWaitSeconds(a) - parseWaitSeconds(b));
+                return matched.map(t => ({
+                    raw: t,
+                    line: targetLine,
+                    waitSec: parseWaitSeconds(t),
+                    heading: t.trainLineNm || (t.statnTnm ? `${t.statnTnm}행` : ''),
+                    currentLoc: t.arvlMsg3 ? `${t.arvlMsg3}역` : '실시간 위치 수신',
+                    statusMsg: t.arvlMsg2 || '접근 중'
+                }));
+            } catch (e) {
+                lastApiErrorNote = isLocal ? '로컬 API 호출 실패' : '/api/subway 연결 실패';
+                return [];
+            }
+        }
+
+        async function searchRoutesAndTrains() {
+            const rawStart = document.getElementById('startInput').value;
+            const rawDest = document.getElementById('destInput').value;
+            const startStation = normalizeStationName(rawStart);
+            const destStation = normalizeStationName(rawDest);
+
+            if (!startStation || !destStation) return alert("출발역과 도착역을 모두 입력해주세요.");
+            if (!ALL_STATIONS.includes(startStation)) return alert(`'${rawStart}'역을 찾을 수 없습니다.`);
+            if (!ALL_STATIONS.includes(destStation)) return alert(`'${rawDest}'역을 찾을 수 없습니다.`);
+            if (startStation === destStation) return alert("출발역과 도착역이 동일합니다.");
+
+            candidateRoutes = findMultipleCandidateRoutes(startStation, destStation);
+            if (candidateRoutes.length === 0) return alert("API 지원 노선 기준 연결 경로를 찾을 수 없습니다.");
+
+            selectedRouteIdx = 0;
+            selectedTrainIdx = 0;
+            expandedSegments = {};
+
+            renderFilterChips();
+            await refreshRealtimeNow();
+            startAutoPoll();
+        }
+
+        function startAutoPoll() {
+            if (pollTicker) clearInterval(pollTicker);
+            pollRemainSec = 20;
+            const labelEl = document.getElementById('pollCountdownLabel');
+            if (labelEl) labelEl.innerText = `${pollRemainSec}초 뒤 갱신`;
+
+            pollTicker = setInterval(async () => {
+                if (isPollingBusy) return;
+                pollRemainSec--;
+                const el = document.getElementById('pollCountdownLabel');
+                if (el) el.innerText = `${Math.max(0, pollRemainSec)}초 뒤 갱신`;
+
+                if (pollRemainSec <= 0) {
+                    isPollingBusy = true;
+                    if (el) el.innerText = '갱신 중...';
+                    await refreshRealtimeNow();
+                    pollRemainSec = 20;
+                    if (el) el.innerText = `${pollRemainSec}초 뒤 갱신`;
+                    isPollingBusy = false;
+                }
+            }, 1000);
+        }
+
+        async function manualRefresh() {
+            if (isPollingBusy) return;
+            isPollingBusy = true;
+            const spin = document.getElementById('refreshSpin');
+            const el = document.getElementById('pollCountdownLabel');
+            if (spin) spin.classList.add('fa-spin');
+            if (el) el.innerText = '갱신 중...';
+            await refreshRealtimeNow();
+            pollRemainSec = 20;
+            if (el) el.innerText = `${pollRemainSec}초 뒤 갱신`;
+            setTimeout(() => { if (spin) spin.classList.remove('fa-spin'); }, 450);
+            isPollingBusy = false;
+        }
+
+        function renderFilterChips() {
+            const chipsEl = document.getElementById('routeFilterChips');
+            chipsEl.innerHTML = candidateRoutes.map((cand, idx) => {
+                const active = idx === selectedRouteIdx;
+                return `
+                    <button type="button" onclick="selectRouteChip(${idx})"
+                            class="px-3.5 py-1.5 rounded-full text-xs font-bold border shrink-0 transition cursor-pointer ${
+                                active
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-500'
+                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            }">
+                        ${cand.label} ${active ? '<i class="fa-solid fa-chevron-down text-[10px] ml-0.5"></i>' : ''}
+                    </button>
+                `;
+            }).join('');
+        }
+
+        async function selectRouteChip(idx) {
+            selectedRouteIdx = idx;
+            selectedTrainIdx = 0;
+            expandedSegments = {};
+            renderFilterChips();
+            await refreshRealtimeNow();
+            pollRemainSec = 20;
+        }
+
+        function shiftLiveTrainIndex(delta) {
+            if (liveTrainCandidates.length <= 1) return;
+            const nextIdx = selectedTrainIdx + delta;
+            if (nextIdx < 0 || nextIdx >= liveTrainCandidates.length) return;
+            selectedTrainIdx = nextIdx;
+            applySelectedTrainSnapshot();
+        }
+
+        function resetLiveTrainIndex() {
+            selectedTrainIdx = 0;
+            applySelectedTrainSnapshot();
+        }
+
+        function toggleSegmentStops(segIdx) {
+            expandedSegments[segIdx] = !expandedSegments[segIdx];
+            renderTimelineAndBar();
+        }
+
+        async function refreshRealtimeNow() {
+            const cand = candidateRoutes[selectedRouteIdx];
+            if (!cand) return;
+
+            const firstSeg = cand.segments[0];
+            const nextSt = firstSeg.stations[1] || null;
+            fetchedAtMs = Date.now();
+            liveTrainCandidates = await fetchStationLineTrains(firstSeg.from, firstSeg.line, nextSt, firstSeg.isDownwardIndex);
+
+            if (selectedTrainIdx >= liveTrainCandidates.length) {
+                selectedTrainIdx = 0;
+            }
+            applySelectedTrainSnapshot();
+        }
+
+        function applySelectedTrainSnapshot() {
+            const cand = candidateRoutes[selectedRouteIdx];
+            if (!cand) return;
+            const firstSeg = cand.segments[0];
+            const col = LINE_COLORS[firstSeg.line] || { bg: '#334155', short: '전' };
+
+            document.getElementById('summarySection').classList.remove('hidden');
+
+            const badgeEl = document.getElementById('cardLineBadge');
+            badgeEl.innerText = firstSeg.line;
+            badgeEl.style.backgroundColor = col.bg;
+
+            const resetBtn = document.getElementById('resetNowBtn');
+            const candBadge = document.getElementById('trainCandidateBadge');
+
+            if (liveTrainCandidates.length > 0) {
+                const chosen = liveTrainCandidates[selectedTrainIdx];
+                activeTrainSummary = chosen;
+                activeBoardTargetMs = fetchedAtMs + chosen.waitSec * 1000;
+                activeFinalTargetMs = activeBoardTargetMs + cand.totalTravelSec * 1000;
+
+                document.getElementById('cardTrainHeading').innerText = chosen.heading || firstSeg.directionText || '운행 중';
+                document.getElementById('liveTrainLocText').innerText = chosen.currentLoc;
+                document.getElementById('liveTrainMsgText').innerText = chosen.statusMsg;
+
+                candBadge.innerText = `실시간 ${selectedTrainIdx + 1}/${liveTrainCandidates.length}번째 열차`;
+                candBadge.className = 'text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full';
+                if (selectedTrainIdx > 0) resetBtn.classList.remove('hidden');
+                else resetBtn.classList.add('hidden');
+            } else {
+                activeTrainSummary = null;
+                activeBoardTargetMs = fetchedAtMs + 180 * 1000;
+                activeFinalTargetMs = activeBoardTargetMs + cand.totalTravelSec * 1000;
+
+                document.getElementById('cardTrainHeading').innerText = firstSeg.directionText || `${firstSeg.line} 열차`;
+                document.getElementById('liveTrainLocText').innerText = '실시간 위치 대기 중';
+                document.getElementById('liveTrainMsgText').innerText = lastApiErrorNote || '해당 방향 실시간 열차 없음';
+
+                candBadge.innerText = lastApiErrorNote ? lastApiErrorNote : '실시간 열차 정보 대기 중';
+                candBadge.className = 'text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full';
+                resetBtn.classList.add('hidden');
+            }
+
+            document.getElementById('totalDurationBig').innerText = formatDurationKorean(cand.totalTravelSec);
+            document.getElementById('summarySubText').innerText =
+                `이동·환승 약 ${Math.round(cand.totalTravelSec / 60)}분 · 환승 ${cand.transfers}회 · ${cand.stops}개 역`;
+
+            renderTimelineAndBar();
+            startSecondTicker();
+        }
+
+        function startSecondTicker() {
+            if (secTicker) clearInterval(secTicker);
+            const updateSecUI = () => {
+                const now = Date.now();
+                const boardRemainSec = Math.max(0, Math.floor((activeBoardTargetMs - now) / 1000));
+                const finalRemainSec = Math.max(0, Math.floor((activeFinalTargetMs - now) / 1000));
+
+                const boardDate = new Date(activeBoardTargetMs);
+                const finalDate = new Date(activeFinalTargetMs);
+
+                document.getElementById('headerDepartureText').innerText = `${formatClockHMS(boardDate)} 탑승 예정`;
+                document.getElementById('boardRemainSecText').innerText =
+                    boardRemainSec === 0 ? '지금 도착' : `${formatRemainMinSec(boardRemainSec)} 남음`;
+                document.getElementById('boardClockText').innerText = formatClockHMS(boardDate);
+
+                document.getElementById('finalArrivalClockText').innerText = formatClockHMS(finalDate);
+                document.getElementById('finalRemainSecText').innerText =
+                    finalRemainSec === 0 ? '도착 예정 시각' : `지금으로부터 ${formatRemainMinSec(finalRemainSec)}`;
+            };
+            updateSecUI();
+            secTicker = setInterval(updateSecUI, 1000);
+        }
+
+        function computeSegmentTimes() {
+            const cand = candidateRoutes[selectedRouteIdx];
+            if (!cand) return [];
+            let cursorMs = activeBoardTargetMs;
+            return cand.segments.map((seg, idx) => {
+                if (idx > 0) {
+                    const prevSeg = cand.segments[idx - 1];
+                    const walkSec = getTransferWalkSeconds(seg.from, prevSeg.line, seg.line);
+                    cursorMs += (walkSec + 90) * 1000;
+                }
+                const boardMs = cursorMs;
+                const alightMs = boardMs + seg.timeSec * 1000;
+                cursorMs = alightMs;
+
+                const heading = (idx === 0 && activeTrainSummary && activeTrainSummary.heading)
+                    ? activeTrainSummary.heading
+                    : seg.directionText;
+
+                const nextSeg = cand.segments[idx + 1];
+                const walkAfterSec = nextSeg ? getTransferWalkSeconds(seg.to, seg.line, nextSeg.line) : 0;
+
+                return {
+                    segIdx: idx, seg: seg, boardDate: new Date(boardMs), alightDate: new Date(alightMs),
+                    heading: heading, walkAfterSec: walkAfterSec, walkAfterMin: Math.max(1, Math.round(walkAfterSec / 60))
+                };
+            });
+        }
+
+        function renderTimelineAndBar() {
+            const steps = computeSegmentTimes();
+            if (steps.length === 0) return;
+
+            const totalSec = Math.max(1, (steps[steps.length - 1].alightDate.getTime() - steps[0].boardDate.getTime()) / 1000);
+
+            let barHtml = `<div class="flex items-center w-full h-5 rounded-full overflow-hidden bg-slate-100 text-[10px] font-bold">`;
+            steps.forEach((st, idx) => {
+                const col = LINE_COLORS[st.seg.line] || { bg: '#64748b', short: '전' };
+                const widthPct = Math.max(16, Math.round((st.seg.timeSec / totalSec) * 100));
+                if (idx > 0) {
+                    const prevWalkMin = steps[idx - 1].walkAfterMin;
+                    barHtml += `<div class="h-full bg-slate-200 text-slate-600 flex items-center justify-center px-1.5 shrink-0">${prevWalkMin}분</div>`;
+                }
+                barHtml += `
+                    <div style="width: ${widthPct}%; background-color: ${col.bg};"
+                         class="h-full text-white flex items-center justify-between px-1.5 min-w-[44px]">
+                        <span class="w-3.5 h-3.5 rounded-full bg-white/25 flex items-center justify-center text-[9px] shrink-0">${col.short}</span>
+                        <span class="truncate ml-1">${st.seg.timeMin}분</span>
+                    </div>
+                `;
+            });
+            barHtml += `</div>`;
+
+            let labelHtml = `<div class="flex items-center justify-between text-[10px] text-slate-500 font-semibold mt-1 px-0.5">`;
+            steps.forEach((st) => {
+                const col = LINE_COLORS[st.seg.line] || { bg: '#64748b' };
+                labelHtml += `
+                    <div class="truncate">
+                        <div class="font-mono text-slate-400">${formatClockHM(st.boardDate)}</div>
+                        <div style="color: ${col.bg};" class="font-bold truncate">${st.seg.from}역</div>
+                    </div>
+                `;
+            });
+            const lastSt = steps[steps.length - 1];
+            labelHtml += `
+                <div class="text-right shrink-0">
+                    <div class="font-mono text-slate-400">${formatClockHM(lastSt.alightDate)}</div>
+                    <div class="font-bold text-slate-700">${lastSt.seg.to}역</div>
+                </div>
+            </div>`;
+            document.getElementById('segmentProgressBar').innerHTML = barHtml + labelHtml;
+
+            let html = '';
+            steps.forEach((st, idx) => {
+                const seg = st.seg;
+                const col = LINE_COLORS[seg.line] || { bg: '#64748b' };
+                const isLast = idx === steps.length - 1;
+                const isExpanded = !!expandedSegments[idx];
+                const midStations = seg.stations.slice(1, -1);
+
+                html += `
+                    <div class="flex gap-3">
+                        <div class="w-14 text-right shrink-0 pt-0.5">
+                            <span class="text-xs font-extrabold font-mono text-slate-800">${formatClockHM(st.boardDate)}</span>
+                        </div>
+                        <div class="flex flex-col items-center shrink-0">
+                            <div style="border-color: ${col.bg}; color: ${col.bg};"
+                                 class="w-6 h-6 rounded-full border-2 bg-white flex items-center justify-center text-[11px] font-black z-10">
+                                <i class="fa-solid fa-train-subway"></i>
+                            </div>
+                            <div style="background-color: ${col.bg};" class="w-1.5 flex-1 min-h-[72px] -my-0.5"></div>
+                        </div>
+                        <div class="flex-1 pb-4 min-w-0">
+                            <div class="flex items-center justify-between gap-2">
+                                <button type="button" onclick="openStationLiveModal(${idx})"
+                                        class="text-left text-sm font-extrabold flex items-center gap-1 hover:underline cursor-pointer truncate">
+                                    <span style="color: ${col.bg};">${seg.line}</span>
+                                    <span class="text-slate-900">${seg.from}역</span>
+                                    <i class="fa-solid fa-chevron-right text-[10px] text-slate-400"></i>
+                                </button>
+                                <button type="button" onclick="openStationLiveModal(${idx})"
+                                        class="px-2 py-0.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-700 text-[11px] font-bold hover:bg-emerald-100 cursor-pointer shrink-0">
+                                    실시간 위치
+                                </button>
+                            </div>
+                            <div class="text-xs text-slate-600 font-medium mt-1">${st.heading}</div>
+                            <div class="mt-2">
+                                <button type="button" onclick="toggleSegmentStops(${idx})"
+                                        class="text-xs text-slate-500 hover:text-slate-800 font-semibold flex items-center gap-1 cursor-pointer">
+                                    <span>${seg.stops}개 역 이동 · <strong>${seg.timeMin}분</strong></span>
+                                    <i class="fa-solid fa-chevron-${isExpanded ? 'up' : 'down'} text-[10px]"></i>
+                                </button>
+                                ${isExpanded && midStations.length > 0 ? `
+                                    <div class="mt-1.5 pl-2.5 border-l-2 border-slate-200 space-y-1 py-1">
+                                        ${midStations.map(ms => `<div class="text-[11px] text-slate-500">${ms}역</div>`).join('')}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                if (!isLast) {
+                    const nextLine = steps[idx + 1].seg.line;
+                    html += `
+                        <div class="flex gap-3">
+                            <div class="w-14 text-right shrink-0 pt-0.5">
+                                <span class="text-xs font-bold font-mono text-slate-500">${formatClockHM(st.alightDate)}</span>
+                            </div>
+                            <div class="flex flex-col items-center shrink-0">
+                                <div class="w-6 h-6 rounded-full border border-slate-300 bg-white text-slate-500 flex items-center justify-center text-[11px] z-10">
+                                    <i class="fa-solid fa-person-walking"></i>
+                                </div>
+                                <div class="w-0.5 flex-1 min-h-[40px] border-l-2 border-dotted border-slate-300 my-0.5"></div>
+                            </div>
+                            <div class="flex-1 pb-3">
+                                <div class="text-sm font-extrabold text-slate-900">${seg.to}역</div>
+                                <div class="text-xs text-slate-500 mt-0.5">
+                                    ${seg.line} → ${nextLine} 환승 도보 <strong class="text-slate-700">${formatWalkDurationText(st.walkAfterSec)}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="flex gap-3">
+                            <div class="w-14 text-right shrink-0 pt-0.5">
+                                <span class="text-xs font-extrabold font-mono text-rose-600">${formatClockHM(st.alightDate)}</span>
+                            </div>
+                            <div class="flex flex-col items-center shrink-0">
+                                <div class="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center text-[11px] z-10">
+                                    <i class="fa-solid fa-flag-checkered"></i>
+                                </div>
+                            </div>
+                            <div class="flex-1 pt-0.5">
+                                <div class="text-sm font-black text-slate-900">${seg.to}역 도착</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+
+            document.getElementById('timelineContainer').innerHTML = html;
+        }
+
+        async function openStationLiveModal(segIdx) {
+            const cand = candidateRoutes[selectedRouteIdx];
+            if (!cand || !cand.segments[segIdx]) return;
+            const seg = cand.segments[segIdx];
+            const col = LINE_COLORS[seg.line] || { bg: '#4338ca' };
+
+            const modal = document.getElementById('scheduleModal');
+            const badge = document.getElementById('modalLineBadge');
+            badge.innerText = seg.line;
+            badge.style.backgroundColor = col.bg;
+
+            document.getElementById('modalTitle').innerText = `${seg.from}역 실시간 열차`;
+            document.getElementById('modalSubtitle').innerText = `${seg.line} · ${seg.directionText || ''} 실시간 위치 및 남은 시간`;
+            document.getElementById('modalBody').innerHTML = `<div class="py-6 text-center text-slate-400">실시간 열차 위치 조회 중...</div>`;
+            modal.classList.remove('hidden');
+
+            const nextSt = seg.stations[1] || null;
+            const trains = await fetchStationLineTrains(seg.from, seg.line, nextSt, seg.isDownwardIndex);
+            const now = Date.now();
+
+            if (trains.length === 0) {
+                document.getElementById('modalBody').innerHTML =
+                    `<div class="py-6 text-center text-slate-400">${lastApiErrorNote || '현재 해당 노선의 실시간 수신 열차가 없습니다.'}</div>`;
+                return;
+            }
+
+            document.getElementById('modalBody').innerHTML = trains.map((tr, i) => {
+                const etaDate = new Date(now + tr.waitSec * 1000);
+                return `
+                    <div class="flex items-center justify-between p-3 rounded-xl border ${i === 0 ? 'bg-emerald-50 border-emerald-300' : 'bg-slate-50 border-slate-200'}">
+                        <div class="min-w-0">
+                            <div class="font-bold text-slate-900 truncate">${tr.heading}</div>
+                            <div class="text-[11px] text-slate-500 mt-0.5">위치: <strong>${tr.currentLoc}</strong> · ${tr.statusMsg}</div>
+                        </div>
+                        <div class="text-right shrink-0 ml-2">
+                            <div class="font-mono font-black text-sm text-indigo-700">${formatClockHMS(etaDate)}</div>
+                            <div class="font-mono font-bold text-[11px] text-emerald-700">${formatRemainMinSec(tr.waitSec)} 남음</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function closeScheduleModal() {
+            document.getElementById('scheduleModal').classList.add('hidden');
+        }
+
+        function closeModalOnBackdrop(e) {
+            if (e.target.id === 'scheduleModal') closeScheduleModal();
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            setupAutocomplete('startInput', 'startDropdown');
+            setupAutocomplete('destInput', 'destDropdown');
+            searchRoutesAndTrains();
+        });
+    </script>
+</body>
+</html>
